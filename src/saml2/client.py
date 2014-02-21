@@ -83,7 +83,7 @@ class Saml2Client(Base):
             req = self.create_authn_request(destination, vorg, scoping,
                                             response_binding, nameid_format,
                                             None, 0,
-                                            consent, extensions, false,
+                                            consent, extensions, False,
                                             **kwargs)
         else:
             req = self.create_authn_request(destination, vorg, scoping,
