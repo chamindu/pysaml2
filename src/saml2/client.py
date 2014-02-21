@@ -97,7 +97,7 @@ class Saml2Client(Base):
         logger.info("AuthNReq: %s" % _req_str)
 
         info = self.apply_binding(binding, _req_str, destination,
-                                  relay_state, sign)
+                                  relay_state, sign=sign)
 
         return req.id, info
 
