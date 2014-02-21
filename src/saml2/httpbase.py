@@ -12,6 +12,7 @@ from saml2 import class_name, SAMLError
 from saml2.pack import http_form_post_message
 from saml2.pack import make_soap_enveloped_saml_thingy
 from saml2.pack import http_redirect_message
+from saml2.sigver import import_rsa_key_from_file, RSA_SHA1
 
 import logging
 
@@ -97,11 +98,11 @@ class HTTPBase(object):
                 self.request_args["verify"] = ca_bundle
             if key_file:
                 self.request_args["cert"] = (cert_file, key_file)
-        
+
         self.sec = None
         self.user = None
         self.passwd = None
-        
+
     def cookies(self, url):
         """
         Return cookies that are matching the path and are still valid
@@ -256,7 +257,7 @@ class HTTPBase(object):
         return http_form_post_message(message, destination, relay_state, typ)
 
     def use_http_get(self, message, destination, relay_state,
-                     typ="SAMLRequest"):
+                     typ="SAMLRequest", sign=False):
         """
         Send a message using GET, this is the HTTP-Redirect case so
         no direct response is expected to this request.
@@ -269,8 +270,13 @@ class HTTPBase(object):
         """
         if not isinstance(message, basestring):
             message = "%s" % (message,)
-
-        return http_redirect_message(message, destination, relay_state, typ)
+        if sign:
+            key = import_rsa_key_from_file(self.config.key_file)
+            return http_redirect_message(message, destination, relay_state,
+                                         typ, sigalg=RSA_SHA1, key=key)
+        else:
+            return http_redirect_message(message, destination,
+                                         relay_state, typ)
 
     def use_http_artifact(self, message, destination="", relay_state=""):
         if relay_state:

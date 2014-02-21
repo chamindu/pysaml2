@@ -79,14 +79,25 @@ class Saml2Client(Base):
 
         destination = self._sso_location(entityid, binding)
 
-        req = self.create_authn_request(destination, vorg, scoping,
-                                        response_binding, nameid_format,
-                                        consent, extensions, sign, **kwargs)
+        if binding == saml2.BINDING_HTTP_REDIRECT:
+            req = self.create_authn_request(destination, vorg, scoping,
+                                            response_binding, nameid_format,
+                                            None, 0,
+                                            consent, extensions, false,
+                                            **kwargs)
+        else:
+            req = self.create_authn_request(destination, vorg, scoping,
+                                            response_binding, nameid_format,
+                                            None, 0,
+                                            consent, extensions, sign,
+                                            **kwargs)
+
         _req_str = "%s" % req
 
         logger.info("AuthNReq: %s" % _req_str)
 
-        info = self.apply_binding(binding, _req_str, destination, relay_state)
+        info = self.apply_binding(binding, _req_str, destination,
+                                  relay_state, sign)
 
         return req.id, info
 
@@ -94,7 +105,7 @@ class Saml2Client(Base):
         """ More or less a layer of indirection :-/
         Bootstrapping the whole thing by finding all the IdPs that should
         be notified.
-        
+
         :param name_id: The identifier of the subject that wants to be
             logged out.
         :param reason: Why the subject wants to log out
@@ -105,7 +116,7 @@ class Saml2Client(Base):
         :return: Depends on which binding is used:
             If the HTTP redirect binding then a HTTP redirect,
             if SOAP binding has been used the just the result of that
-            conversation. 
+            conversation.
         """
 
         if isinstance(name_id, basestring):
@@ -116,7 +127,7 @@ class Saml2Client(Base):
         # find out which IdPs/AAs I should notify
         entity_ids = self.users.issuers_of_info(name_id)
         return self.do_logout(name_id, entity_ids, reason, expire, sign)
-        
+
     def do_logout(self, name_id, entity_ids, reason, expire, sign=None):
         """
 
@@ -133,7 +144,7 @@ class Saml2Client(Base):
             # Do the local logout anyway
             self.local_logout(name_id)
             return 0, "504 Gateway Timeout", [], []
-            
+
         not_done = entity_ids[:]
         responses = {}
 
@@ -159,7 +170,7 @@ class Saml2Client(Base):
                                                      name_id=name_id,
                                                      reason=reason,
                                                      expire=expire)
-                
+
                 #to_sign = []
                 if binding.startswith("http://"):
                     sign = True
@@ -207,12 +218,12 @@ class Saml2Client(Base):
         if not_done:
             # upstream should try later
             raise LogoutError("%s" % (entity_ids,))
-        
+
         return responses
 
     def local_logout(self, name_id):
-        """ Remove the user from the cache, equals local logout 
-        
+        """ Remove the user from the cache, equals local logout
+
         :param name_id: The identifier of the subject
         """
         self.users.remove_person(name_id)
@@ -220,15 +231,15 @@ class Saml2Client(Base):
 
     def is_logged_in(self, name_id):
         """ Check if user is in the cache
-        
+
         :param name_id: The identifier of the subject
         """
         identity = self.users.get_identity(name_id)[0]
         return bool(identity)
-        
+
     def handle_logout_response(self, response):
-        """ handles a Logout response 
-        
+        """ handles a Logout response
+
         :param response: A response.Response instance
         :return: 4-tuple of (session_id of the last sent logout request,
             response message, response headers and message)
